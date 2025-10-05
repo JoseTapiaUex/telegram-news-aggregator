@@ -1,9 +1,0 @@
-# Optional / advanced dependencies
-# Pin to a widely-available binary wheel on Windows to avoid compiling from source
-lxml==4.9.3
-html5lib==1.1
-extruct==0.16.0
-python-dateutil==2.8.2
-google-genai==0.3.0
-validators==0.22.0
-urllib3==2.1.0
