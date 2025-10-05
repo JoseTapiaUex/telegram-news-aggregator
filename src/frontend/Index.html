@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Aggregator - Telegram</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">📰 News Aggregator</h1>
+            <p class="tagline">Contenido seleccionado desde Telegram</p>
+        </div>
+    </header>
+
+    <!-- Filtros -->
+    <section class="filters">
+        <div class="container">
+            <div class="filter-group">
+                <input type="text" id="searchInput" placeholder="🔍 Buscar..." class="search-input">
+                <select id="providerFilter" class="filter-select">
+                    <option value="">Todos los proveedores</option>
+                </select>
+                <select id="typeFilter" class="filter-select">
+                    <option value="">Todos los tipos</option>
+                </select>
+                <button id="clearFilters" class="btn-clear">Limpiar filtros</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Estadísticas -->
+    <section class="stats">
+        <div class="container">
+            <div class="stat-card">
+                <span class="stat-number" id="totalPosts">0</span>
+                <span class="stat-label">Total de Posts</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="totalProviders">0</span>
+                <span class="stat-label">Proveedores</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="lastUpdate">-</span>
+                <span class="stat-label">Última actualización</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contenedor de Posts -->
+    <main class="main-content">
+        <div class="container">
+            <div id="postsContainer" class="posts-grid">
+                <!-- Los posts se cargarán aquí dinámicamente -->
+            </div>
+            <div id="loadingIndicator" class="loading">
+                <div class="spinner"></div>
+                <p>Cargando contenido...</p>
+            </div>
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <h2>No se encontraron resultados</h2>
+                <p>Intenta ajustar tus filtros o espera a que se agregue nuevo contenido.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 News Aggregator. Contenido recopilado automáticamente desde Telegram.</p>
+            <p class="footer-note">Recarga automática cada 30 segundos</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
