@@ -113,22 +113,22 @@ class MCPClient:
         print(f"[INFO] Obteniendo mensajes del diálogo: {dialog_id} (limit={limit})...")
 
         # El servidor Go espera HistoryArguments{Name: ...}
-        # Intentamos primero con la clave 'name' (formato: cht[...], chn[...] o username)
-        args = {"name": dialog_id, "limit": limit}
+        # Intentamos primero con la clave 'dialogId' (formato: cht[...], chn[...] o username)
+        args = {"dialogId": dialog_id, "limit": limit}
         result = None
 
         try:
             result = self.call_tool("tg_dialog", args)
         except Exception as e:
-            print(f"[DEBUG] Error llamando tg_dialog con 'name': {e}")
+            print(f"[DEBUG] Error llamando tg_dialog con 'dialogId': {e}")
 
-        # Si falla o el servidor responde con isError, intentar fallback con 'dialogId'
+        # Si falla o el servidor responde con isError, intentar fallback con 'name'
         if not result or (isinstance(result, dict) and result.get('isError')):
             try:
-                print("[DEBUG] Intentando tg_dialog con clave 'dialogId' como fallback")
-                result = self.call_tool("tg_dialog", {"dialogId": dialog_id, "limit": limit})
+                print("[DEBUG] Intentando tg_dialog con clave 'name' como fallback")
+                result = self.call_tool("tg_dialog", {"name": dialog_id, "limit": limit})
             except Exception as e:
-                print(f"[DEBUG] Error llamando tg_dialog con 'dialogId': {e}")
+                print(f"[DEBUG] Error llamando tg_dialog con 'name': {e}")
                 return []
 
         # Parsear la respuesta: muchas respuestas vienen como dict {'content': [{ 'text': '<json>' }, ...]}

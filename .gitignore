@@ -70,6 +70,8 @@ coverage.xml
 *.db
 *.sqlite
 *.sqlite3
+data/
+
 
 # Node modules (for frontend dependencies if any)
 node_modules/

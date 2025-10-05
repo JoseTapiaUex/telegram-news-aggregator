@@ -178,6 +178,30 @@ Obtener un post específico por ID
 - Verifica tu API key
 - Comprueba la URL del servicio
 
+### Windows: error building wheels (lxml / Microsoft C++ Build Tools)
+
+- Si al instalar dependencias ves un error similar a:
+  ```
+  error: Microsoft Visual C++ 14.0 or greater is required. Get it with "Microsoft C++ Build Tools"
+  ```
+  significa que pip intentó compilar una dependencia (por ejemplo `lxml`) y no encontró una rueda precompilada para tu versión de Python/Windows.
+
+- Recomendado: ejecuta el script preparado `scripts/setup_windows.ps1` desde PowerShell (como Administrador). El script intentará:
+  1. Actualizar pip/setuptools/wheel
+  2. Instalar dependencias prefiriendo ruedas binarias
+  3. Hacer un fallback con `pip` normal
+  4. Si falla, intentar instalar `lxml` mediante `pipwin` (ruedas precompiladas)
+  5. Si todo falla, sugerirá instalar Visual C++ Build Tools vía `winget` o descargando el instalador
+
+  Para ejecutarlo:
+  ```powershell
+  # Abre PowerShell como Administrador
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  .\scripts\setup_windows.ps1
+  ```
+
+  Si prefieres no ejecutar scripts, sigue las instrucciones descritas en la sección anterior sobre instalar Visual C++ Build Tools o descargar la rueda precompilada para `lxml`.
+
 ## 📄 Licencia
 
 MIT License - Siéntete libre de usar y modificar este proyecto.

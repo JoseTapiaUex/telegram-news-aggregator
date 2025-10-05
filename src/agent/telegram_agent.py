@@ -71,6 +71,7 @@ class TelegramAgent:
             # Si la librería devolvía una lista de dicts (messages ya parseados), OK
             if isinstance(messages, list):
                 print(f"[INFO] Obtenidos {len(messages)} mensajes (lista)")
+                print(f"[DEBUG] Primer mensaje: {messages[0] if messages else 'None'}")
                 return messages
 
             # Si por alguna razón viene un dict (compatibilidad), intentar extraer
@@ -98,16 +99,12 @@ class TelegramAgent:
     
     def process_message(self, message):
         """Procesa un mensaje individual buscando URLs"""
-        # Debug: ver qué tipo de dato es el mensaje
-        print(f"[DEBUG] Tipo de mensaje: {type(message)}")
-        
         # Si el mensaje es un string, extraer URLs directamente del texto
         if isinstance(message, str):
             text = message
             urls = self.extract_urls(text)
             
             if not urls:
-                print(f"[DEBUG] No se encontraron URLs en el mensaje string")
                 return
             
             print(f"[INFO] Encontradas {len(urls)} URL(s) en mensaje de texto")
@@ -115,7 +112,7 @@ class TelegramAgent:
             for url in urls:
                 try:
                     print(f"[INFO] Procesando URL: {url}")
-                    post_data = self.content_processor.process_url(url, datetime.now().strftime('%Y-%m-%d'))
+                    post_data = self.content_processor.process_url(url, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                     
                     if post_data:
                         self.save_post(post_data)
@@ -134,10 +131,22 @@ class TelegramAgent:
         if not urls:
             return
         
-        print(f"[INFO] Encontradas {len(urls)} URL(s) en mensaje {message.get('id')}")
+        print(f"[INFO] Encontradas {len(urls)} URL(s) en mensaje {message.get('id', 'N/A')}")
+        print(f"[DEBUG] Mensaje completo: {message}")
         
-        # Fecha del mensaje de Telegram
-        message_date = message.get('date', datetime.now().strftime('%Y-%m-%d'))
+        # Fecha del mensaje de Telegram (string 'YYYY-MM-DD HH:MM:SS' esperado)
+        message_timestamp = message.get('when')
+        print(f"[DEBUG] message_timestamp (when): {message_timestamp}")
+        if message_timestamp:
+            try:
+                message_dt = datetime.strptime(message_timestamp, '%Y-%m-%d %H:%M:%S')
+                message_date = message_dt.strftime('%Y-%m-%d %H:%M:%S')
+            except (ValueError, TypeError) as e:
+                print(f"[WARNING] Error convirtiendo timestamp {message_timestamp}: {e}")
+                message_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            print(f"[WARNING] No se encontró 'when' en el mensaje")
+            message_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         for url in urls:
             try:
@@ -182,6 +191,17 @@ class TelegramAgent:
         """Ejecuta una verificación única del grupo"""
         print(f"\n[INFO] Iniciando verificación - {datetime.now()}")
         
+        # Obtener timestamp de la última verificación
+        last_check = self.get_last_check_timestamp()
+        last_check_dt = None
+        if last_check:
+            try:
+                last_check_dt = datetime.fromisoformat(last_check)
+                print(f"[INFO] Última verificación: {last_check_dt}")
+            except Exception as e:
+                print(f"[WARNING] Error parseando timestamp: {e}")
+                last_check_dt = None
+        
         # Obtener mensajes de Telegram
         messages = self.get_telegram_messages()
         
@@ -192,14 +212,42 @@ class TelegramAgent:
         print(f"[INFO] Procesando {len(messages)} mensajes")
         
         # Procesar cada mensaje
+        processed_count = 0
         for message in messages:
-            self.process_message(message)
+            if self.should_process_message(message, last_check_dt):
+                self.process_message(message)
+                processed_count += 1
+        
+        print(f"[INFO] Procesados {processed_count} mensajes nuevos")
         
         # Guardar timestamp de esta verificación
         current_timestamp = datetime.now().isoformat()
         self.save_last_check_timestamp(current_timestamp)
         
         print(f"[INFO] Verificación completada")
+    
+    def should_process_message(self, message, last_check_dt):
+        """Determina si un mensaje debe procesarse basado en la fecha"""
+        if last_check_dt is None:
+            # Si no hay timestamp anterior, procesar todos
+            return True
+        
+        if isinstance(message, str):
+            # Para mensajes string, procesar (no hay fecha)
+            return True
+        
+        if isinstance(message, dict):
+            message_date = message.get('when')
+            if message_date:
+                try:
+                    # Parsear string 'YYYY-MM-DD HH:MM:SS'
+                    message_dt = datetime.strptime(message_date, '%Y-%m-%d %H:%M:%S')
+                    return message_dt > last_check_dt
+                except Exception as e:
+                    print(f"[WARNING] Error parseando fecha del mensaje: {e}")
+                    return True  # Procesar si no se puede determinar
+        
+        return True
     
     def run(self):
         """Ejecuta el agente en modo continuo"""

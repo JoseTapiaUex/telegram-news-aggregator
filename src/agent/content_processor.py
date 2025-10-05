@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from config import SCRAPING_CONFIG, IMAGE_API_CONFIG, CONTENT_TYPES
 
@@ -186,25 +186,162 @@ class ContentProcessor:
     
     def generate_image(self, title, summary):
         """Genera una imagen usando una API de generación de imágenes"""
-        if not IMAGE_API_CONFIG['api_key'] or not IMAGE_API_CONFIG['api_url']:
-            print("[WARNING] API de generación de imágenes no configurada")
-            return None
-        
+        # Preferir servicio configurado en IMAGE_API_CONFIG o fallback a vars alternativas
+        service = IMAGE_API_CONFIG.get('service') or 'gemini'
+
+        # Prefer configured key; also accept legacy IMAGE_API_KEY2 env var
+        api_key = IMAGE_API_CONFIG.get('api_key') or ''
+        if not api_key:
+            import os
+            api_key = os.getenv('IMAGE_API_KEY2', '') or os.getenv('IMAGE_API_KEY', '') or os.getenv('IMAGE_API_KEY_2', '')
+
+        api_url = IMAGE_API_CONFIG.get('api_url') or ''
+
+        prompt = f"Create a professional blog post header image for the article titled '{title}'. Content summary: {summary[:250]}. Make it visually appealing and relevant to the topic."
+
+        # Nombre del archivo y carpeta destino
+        out_dir = Path('data') / 'generated'
+        out_dir.mkdir(parents=True, exist_ok=True)
+        # filename seguro
+        import re
+        safe_title = re.sub(r"[^a-zA-Z0-9-_]", "-", title)[:50].strip("-") or 'image'
+        out_path = out_dir / f"{safe_title}.jpg"
+
+        # Intentar usar la librería oficial google.genai si está disponible y el servicio es gemini
+        if service.lower() in ('gemini', 'google', 'google-genai') or api_key.startswith('AIza'):
+            try:
+                try:
+                    from google import genai
+                    from google.genai import types
+                except Exception:
+                    genai = None
+
+                if genai:
+                    # Prefer explicit API key if provided to avoid ADC issues
+                    api_key_env = IMAGE_API_CONFIG.get('api_key') or ''
+                    if not api_key_env:
+                        import os
+                        api_key_env = os.getenv('IMAGE_API_KEY') or os.getenv('IMAGE_API_KEY2', '') or os.getenv('IMAGE_API_KEY_2', '')
+
+                    if api_key_env:
+                        client = genai.Client(api_key=api_key_env)
+                    else:
+                        client = genai.Client()
+
+                    # Generar imagen con modelo de imagen
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash-image",
+                        contents=[prompt],
+                        config=types.GenerateContentConfig(
+                            response_modalities=['Image']
+                        )
+                    )
+
+                    # Extraer bytes de la primera imagen retornada
+                    if response and getattr(response, 'candidates', None):
+                        for part in response.candidates[0].content.parts:
+                            if part.inline_data is not None:
+                                img_bytes = part.inline_data.data
+                                with open(out_path, 'wb') as f:
+                                    f.write(img_bytes)
+                                print(f"[INFO] Imagen generada y guardada en {out_path}")
+                                # Devolver la URL pública que sirve Flask: /generated/<filename>
+                                return f"/generated/{out_path.name}"
+
+            except Exception as e:
+                print(f"[ERROR] Error generando imagen con Gemini SDK: {e}")
+
+        # Fallback: OpenAI DALL-E si hay clave
+        openai_key = os.getenv('IMAGE_API_KEY_1', '') or os.getenv('OPENAI_API_KEY', '')
+        if openai_key:
+            try:
+                dalle_url = "https://api.openai.com/v1/images/generations"
+                headers = {
+                    'Authorization': f'Bearer {openai_key}',
+                    'Content-Type': 'application/json'
+                }
+                payload = {
+                    'prompt': prompt,
+                    'model': 'dall-e-3',
+                    'size': '1024x1024',
+                    'quality': 'standard',
+                    'n': 1
+                }
+                resp = requests.post(dalle_url, json=payload, headers=headers, timeout=30)
+                resp.raise_for_status()
+                j = resp.json()
+                if 'data' in j and j['data']:
+                    img_url = j['data'][0]['url']
+                    # Descargar la imagen
+                    img_resp = requests.get(img_url, timeout=30)
+                    img_resp.raise_for_status()
+                    with open(out_path, 'wb') as f:
+                        f.write(img_resp.content)
+                    print(f"[INFO] Imagen generada con DALL-E y guardada en {out_path}")
+                    return f"/generated/{out_path.name}"
+            except Exception as e:
+                print(f"[ERROR] Error generando imagen con DALL-E: {e}")
+
+        # Fallback: Pollinations.ai (gratuito, sin API key)
         try:
-            # Este es un ejemplo genérico. Adapta según la API que uses
-            prompt = f"Create a professional blog post header image for: {title}"
+            # Usar la API de Pollinations: https://image.pollinations.ai/prompt/{encoded_prompt}
+            encoded_prompt = requests.utils.quote(prompt)
+            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+            # Parámetros opcionales: width=1024&height=1024&model=flux&seed=42
+            pollinations_url += "?width=1024&height=1024&model=flux"
             
-            # Aquí deberías implementar la llamada específica a tu API
-            # Por ejemplo, para OpenAI DALL-E:
-            # response = openai.Image.create(prompt=prompt, n=1, size="1024x1024")
-            # image_url = response['data'][0]['url']
+            resp = requests.get(pollinations_url, timeout=30)  # Timeout razonable
+            resp.raise_for_status()
             
-            print("[INFO] Generación de imágenes no implementada completamente")
-            return None
-            
+            with open(out_path, 'wb') as f:
+                f.write(resp.content)
+            print(f"[INFO] Imagen generada con Pollinations.ai y guardada en {out_path}")
+            return f"/generated/{out_path.name}"
         except Exception as e:
-            print(f"[ERROR] Error generando imagen: {str(e)}")
-            return None
+            print(f"[ERROR] Error generando imagen con Pollinations.ai: {e}")
+        if api_url:
+            try:
+                headers = {'Content-Type': 'application/json'}
+                if api_key:
+                    headers['Authorization'] = f"Bearer {api_key}"
+
+                payload = {
+                    'prompt': prompt,
+                    'model': 'gemini-2.5-flash-image',
+                    'response_modalities': ['Image']
+                }
+
+                resp = requests.post(api_url, json=payload, headers=headers, timeout=30)
+                resp.raise_for_status()
+
+                # Asumir que la respuesta trae imagen en bytes en base64 o binario directo
+                content_type = resp.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    j = resp.json()
+                    # Buscar base64 encoded image en campos comunes
+                    b64 = None
+                    if isinstance(j, dict):
+                        # Distintos proveedores usan distintos campos
+                        b64 = j.get('image') or j.get('data') or j.get('result')
+                    if b64:
+                        import base64
+                        img_bytes = base64.b64decode(b64)
+                        with open(out_path, 'wb') as f:
+                            f.write(img_bytes)
+                        print(f"[INFO] Imagen generada (REST) y guardada en {out_path}")
+                        return f"/generated/{out_path.name}"
+                else:
+                    # Si es binario directo
+                    with open(out_path, 'wb') as f:
+                        f.write(resp.content)
+                    print(f"[INFO] Imagen generada (REST binario) y guardada en {out_path}")
+                    return f"/generated/{out_path.name}"
+
+            except Exception as e:
+                print(f"[ERROR] Error generando imagen via REST: {e}")
+
+        print("[WARNING] API de generación de imágenes no configurada o falló la generación")
+        return None
     
     def process_url(self, url, message_date):
         """Procesa una URL y extrae toda la información necesaria"""

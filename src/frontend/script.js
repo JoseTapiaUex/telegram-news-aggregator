@@ -288,7 +288,8 @@ function createPostCard(post, index) {
     if (post.image_url) {
         const img = document.createElement('img');
         img.className = 'post-image';
-        img.src = post.image_url;
+        // Construir URL completa si es relativa
+        img.src = post.image_url.startsWith('/') ? `${window.location.origin}${post.image_url}` : post.image_url;
         img.alt = post.title;
         img.onerror = () => {
             img.style.display = 'none';
@@ -316,7 +317,7 @@ function createPostCard(post, index) {
     
     const date = document.createElement('span');
     date.className = 'post-date';
-    date.textContent = formatDate(post.release_date);
+    date.textContent = formatDate(post.release_date || post.created_at);
     
     meta.appendChild(provider);
     meta.appendChild(date);
@@ -462,9 +463,18 @@ function formatDate(dateString) {
     if (!dateString) return 'Fecha desconocida';
     
     try {
+        // Si es formato 'YYYY-MM-DD HH:MM:SS', convertir a ISO
+        if (dateString.includes(' ')) {
+            dateString = dateString.replace(' ', 'T');
+        }
         const date = new Date(dateString);
-        const options = { year: 'numeric', month: 'long', day: 'numeric' };
-        return date.toLocaleDateString('es-ES', options);
+        return date.toLocaleString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     } catch (error) {
         return dateString;
     }

@@ -63,7 +63,7 @@ class Database:
         print(f"[INFO] Base de datos inicializada: {self.db_path}")
     
     def insert_post(self, post_data):
-        """Inserta un nuevo post en la base de datos"""
+        """Inserta un nuevo post en la base de datos, o actualiza si ya existe"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -92,12 +92,51 @@ class Database:
             return post
             
         except sqlite3.IntegrityError:
+            # Si ya existe, actualizar
             conn.close()
-            print(f"[WARNING] Post duplicado: {post_data['source_url']}")
-            return None
+            print(f"[INFO] Post duplicado, intentando actualizar: {post_data['source_url']}")
+            return self.update_post(post_data)
         except Exception as e:
             conn.close()
             print(f"[ERROR] Error insertando post: {str(e)}")
+            return None
+    
+    def update_post(self, post_data):
+        """Actualiza un post existente en la base de datos"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                UPDATE posts 
+                SET title = ?, summary = ?, image_url = ?, release_date = ?, provider = ?, type = ?
+                WHERE source_url = ?
+            ''', (
+                post_data['title'],
+                post_data['summary'],
+                post_data.get('image_url', ''),
+                post_data['release_date'],
+                post_data.get('provider', ''),
+                post_data.get('type', ''),
+                post_data['source_url']
+            ))
+            
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                # Obtener el post actualizado
+                cursor.execute('SELECT * FROM posts WHERE source_url = ?', (post_data['source_url'],))
+                post = dict(cursor.fetchone())
+                conn.close()
+                return post
+            else:
+                conn.close()
+                print(f"[WARNING] No se pudo actualizar post: {post_data['source_url']}")
+                return None
+            
+        except Exception as e:
+            conn.close()
+            print(f"[ERROR] Error actualizando post: {str(e)}")
             return None
     
     def get_all_posts(self, limit=None, offset=0):

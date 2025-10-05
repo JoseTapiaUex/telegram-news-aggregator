@@ -1,34 +1,17 @@
-# Web Framework
-Flask==3.0.0
-flask-cors==4.0.0
+"""
+This repository provides two requirement files to avoid installing heavy/optional
+binary packages by default on Windows.
 
-# HTTP Requests
-requests==2.31.0
+- requirements-core.txt: minimal packages required to run the app
+- requirements-optional.txt: optional/advanced packages (lxml, gemini SDK, etc.)
 
-# Web Scraping
-beautifulsoup4==4.12.2
-lxml==5.1.0
+Install the core dependencies first:
 
-# HTML Parsing and Metadata Extraction
-html5lib==1.1
-extruct==0.16.0
+	.\.venv\Scripts\python.exe -m pip install -r requirements-core.txt
 
-# Database
-# sqlite3  # Included in Python standard library
+If you need advanced features (image generation with Gemini SDK, extruct, or
+faster HTML parsing with lxml), then install the optional set:
 
-# Environment Variables
-python-dotenv==1.0.0
+	.\.venv\Scripts\python.exe -m pip install -r requirements-optional.txt
 
-# Date/Time utilities
-python-dateutil==2.8.2
-
-# MCP Protocol (Model Context Protocol)
-# Nota: Asume que telegram-mcp ya está configurado externamente
-
-# Image Generation API (opcional, según el servicio que uses)
-# openai==1.3.0  # Si usas DALL-E
-# stability-sdk==0.8.4  # Si usas Stable Diffusion
-
-# Utilities
-validators==0.22.0
-urllib3==2.1.0
+"""

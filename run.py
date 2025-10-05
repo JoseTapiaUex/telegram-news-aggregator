@@ -12,6 +12,9 @@ import subprocess
 import shutil
 from pathlib import Path
 from dotenv import load_dotenv
+import threading
+import webbrowser
+import time
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "Src"))
@@ -102,32 +105,7 @@ def setup_telegram_mcp():
         
         logger.info("Autenticación completada exitosamente")
         
-        # Paso 2: Levantar el servidor MCP en segundo plano
-        logger.info("-" * 60)
-        logger.info("Paso 2/2: Levantando servidor MCP...")
-        logger.info("-" * 60)
-        
-        server_command = [
-            npx_path, "-y", "@chaindead/telegram-mcp"
-        ]
-        
-        logger.info(f"Ejecutando: {' '.join(server_command)}")
-        
-        # Iniciar en background sin capturar salida
-        process = subprocess.Popen(
-            server_command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
-        
-        logger.info(f"Servidor MCP iniciado (PID: {process.pid})")
-        logger.info("El servidor está corriendo en segundo plano")
-        
-        # Pequeña pausa para asegurar que el servidor inició
-        import time
-        time.sleep(2)
-        
+        # El servidor MCP se inicia por cada llamada del cliente, no necesita background
         logger.info("=" * 60)
         logger.info("Telegram MCP Server configurado correctamente")
         logger.info("=" * 60)
@@ -194,7 +172,31 @@ async def main():
         # Paso 2: Crear aplicación Flask
         app = create_app()
 
-        # Paso 3: Ejecutar agente una vez para obtener mensajes iniciales
+        # Iniciar Flask thread inmediatamente
+        def run_flask():
+            app.run(
+                host=FLASK_CONFIG['host'],
+                port=FLASK_CONFIG['port'],
+                debug=FLASK_CONFIG['debug'],
+                use_reloader=False
+            )
+        
+        flask_thread = threading.Thread(target=run_flask, daemon=False)
+        flask_thread.start()
+        
+        # Esperar un poco para que Flask inicie
+        time.sleep(2)
+        
+        # Abrir navegador automáticamente
+        logger.info("Abriendo navegador web...")
+        try:
+            # Abrir index.html en el navegador predeterminado
+            webbrowser.open(f'http://localhost:{FLASK_CONFIG["port"]}/')
+            logger.info("Navegador abierto exitosamente con index.html")
+        except Exception as e:
+            logger.warning(f"No se pudo abrir el navegador automáticamente: {e}")
+        
+        # Ejecutar verificación inicial de mensajes
         logger.info("")
         logger.info("=" * 60)
         logger.info("Obteniendo mensajes iniciales de Telegram")
@@ -204,34 +206,12 @@ async def main():
         agent = TelegramAgent()
         agent.run_once()
         
-        logger.info("Servidor API REST creado exitosamente")
-        logger.info("")
-        logger.info("*" * 60)
-        logger.info("*** SISTEMA COMPLETAMENTE OPERATIVO ***")
-        logger.info("*" * 60)
-        logger.info("")
-        logger.info("Servicios activos:")
-        logger.info("  - Telegram MCP Server (Node.js): Running en background")
-        logger.info(f"  - API REST Backend (Python): http://{FLASK_CONFIG['host']}:{FLASK_CONFIG['port']}/api")
-        logger.info(f"  - Frontend: http://localhost:{FLASK_CONFIG['port']}")
-        logger.info("")
-        logger.info("Presiona Ctrl+C para detener todos los servicios")
-        logger.info("")
+        # Iniciar agente de monitoreo continuo
+        def run_agent():
+            agent.run()
         
-        # Ejecutar el servidor Flask (esto bloqueará hasta Ctrl+C)
-        # Flask no es async, así que lo ejecutamos en un thread
-        import threading
-        
-        def run_flask():
-            app.run(
-                host=FLASK_CONFIG['host'],
-                port=FLASK_CONFIG['port'],
-                debug=FLASK_CONFIG['debug'],
-                use_reloader=False
-            )
-        
-        flask_thread = threading.Thread(target=run_flask, daemon=True)
-        flask_thread.start()
+        agent_thread = threading.Thread(target=run_agent, daemon=False)
+        agent_thread.start()
         
         # Mantener el programa corriendo
         while True:

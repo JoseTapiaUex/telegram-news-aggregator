@@ -26,11 +26,18 @@ def create_app():
     # Ruta para servir el frontend
     @app.route('/')
     def index():
-        return send_from_directory(app.static_folder, 'index.html')
+        return send_from_directory(app.static_folder, 'Index.html')
     
     @app.route('/<path:path>')
     def static_files(path):
         return send_from_directory(app.static_folder, path)
+
+    # Servir imágenes generadas (data/generated)
+    @app.route('/generated/<path:filename>')
+    def generated_images(filename):
+        # data/generated está en la raíz del proyecto
+        generated_dir = Path(__file__).resolve().parent.parent.parent / 'data' / 'generated'
+        return send_from_directory(generated_dir, filename)
     
     # ==================== ENDPOINTS DEL API ====================
     
