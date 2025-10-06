@@ -107,4 +107,4 @@ credentials.json
 mcp_config.json
 
 # Legacy folder (old scripts and logs)
-Legacy/
+legacy/
