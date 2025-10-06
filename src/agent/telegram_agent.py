@@ -57,45 +57,54 @@ class TelegramAgent:
         """Obtiene mensajes del grupo de Telegram usando las herramientas MCP"""
         print(f"[INFO] Obteniendo mensajes del grupo: {self.group_name}")
         
-        try:
-            from src.agent.mcp_client import MCPClient
-            mcp = MCPClient()
-            
-            # Obtener mensajes del diálogo
-            messages = mcp.get_dialog_messages(dialog_id=self.group_name, limit=50)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                from src.agent.mcp_client import MCPClient
+                mcp = MCPClient()
+                
+                # Obtener mensajes del diálogo
+                messages = mcp.get_dialog_messages(dialog_id=self.group_name, limit=50)
 
-            if not messages:
-                print(f"[INFO] No se recibieron mensajes (respuesta vacía)")
-                return []
+                if not messages:
+                    print(f"[INFO] No se recibieron mensajes (respuesta vacía)")
+                    return []
 
-            # Si la librería devolvía una lista de dicts (messages ya parseados), OK
-            if isinstance(messages, list):
-                print(f"[INFO] Obtenidos {len(messages)} mensajes (lista)")
-                print(f"[DEBUG] Primer mensaje: {messages[0] if messages else 'None'}")
+                # Si la librería devolvía una lista de dicts (messages ya parseados), OK
+                if isinstance(messages, list):
+                    print(f"[INFO] Obtenidos {len(messages)} mensajes (lista)")
+                    print(f"[DEBUG] Primer mensaje: {messages[0] if messages else 'None'}")
+                    return messages
+
+                # Si por alguna razón viene un dict (compatibilidad), intentar extraer
+                if isinstance(messages, dict):
+                    print("[DEBUG] Respuesta tipo dict recibida, intentando extraer 'messages'...")
+                    # Buscar contenido de mensajes en keys conocidas
+                    if 'messages' in messages:
+                        return messages['messages']
+                    # Fallback: buscar 'content' -> text JSON
+                    content = messages.get('content')
+                    if content and isinstance(content, list):
+                        for item in content:
+                            if item.get('type') == 'text' and item.get('text'):
+                                try:
+                                    parsed = json.loads(item.get('text'))
+                                    if isinstance(parsed, dict) and 'messages' in parsed:
+                                        return parsed['messages']
+                                except Exception:
+                                    continue
+                    return []
+                
                 return messages
-
-            # Si por alguna razón viene un dict (compatibilidad), intentar extraer
-            if isinstance(messages, dict):
-                print("[DEBUG] Respuesta tipo dict recibida, intentando extraer 'messages'...")
-                # Buscar contenido de mensajes en keys conocidas
-                if 'messages' in messages:
-                    return messages['messages']
-                # Fallback: buscar 'content' -> text JSON
-                content = messages.get('content')
-                if content and isinstance(content, list):
-                    for item in content:
-                        if item.get('type') == 'text' and item.get('text'):
-                            try:
-                                parsed = json.loads(item.get('text'))
-                                if isinstance(parsed, dict) and 'messages' in parsed:
-                                    return parsed['messages']
-                            except Exception:
-                                continue
-                return []
-            
-        except Exception as e:
-            print(f"[ERROR] Error obteniendo mensajes: {str(e)}")
-            return []
+                
+            except Exception as e:
+                print(f"[ERROR] Error obteniendo mensajes (intento {attempt + 1}/{max_retries}): {str(e)}")
+                if attempt < max_retries - 1:
+                    print(f"[INFO] Reintentando en 5 segundos...")
+                    time.sleep(5)
+                else:
+                    print(f"[ERROR] Fallaron todos los intentos, retornando lista vacía")
+                    return []
     
     def process_message(self, message):
         """Procesa un mensaje individual buscando URLs"""
@@ -256,11 +265,28 @@ class TelegramAgent:
         print(f"[INFO] Intervalo de verificación: {self.check_interval}s")
         print(f"[INFO] Presiona Ctrl+C para detener")
         
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+        
         try:
             while True:
-                self.run_once()
-                print(f"[INFO] Esperando {self.check_interval}s hasta la próxima verificación...")
-                time.sleep(self.check_interval)
+                try:
+                    self.run_once()
+                    consecutive_errors = 0  # Reset error counter on success
+                    print(f"[INFO] Esperando {self.check_interval}s hasta la próxima verificación...")
+                    time.sleep(self.check_interval)
+                    
+                except Exception as e:
+                    consecutive_errors += 1
+                    print(f"[ERROR] Error en verificación (error {consecutive_errors}/{max_consecutive_errors}): {str(e)}")
+                    
+                    if consecutive_errors >= max_consecutive_errors:
+                        print(f"[CRITICAL] Demasiados errores consecutivos. Esperando 5 minutos antes de continuar...")
+                        time.sleep(300)  # Esperar 5 minutos
+                        consecutive_errors = 0
+                    else:
+                        print(f"[INFO] Reintentando en 30 segundos...")
+                        time.sleep(30)
                 
         except KeyboardInterrupt:
             print("\n[INFO] Agente detenido por el usuario")

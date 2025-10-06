@@ -6,6 +6,8 @@ import json
 import subprocess
 import shutil
 import os
+import time
+import threading
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 
@@ -24,10 +26,45 @@ class MCPClient:
         self.app_id = os.getenv("TG_APP_ID")
         self.api_hash = os.getenv("TG_API_HASH")
         self.phone = os.getenv("TG_PHONE")
+        
+        # Conexión persistente
+        self.process = None
+        self.process_lock = threading.Lock()
+        self.request_id = 1
+    
+    def _start_server(self):
+        """Inicia el servidor MCP si no está corriendo"""
+        if self.process is None or self.process.poll() is not None:
+            try:
+                self.process = subprocess.Popen(
+                    [self.npx_path, "-y", "@chaindead/telegram-mcp"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1
+                )
+                # Dar tiempo al servidor para inicializar
+                time.sleep(2)
+            except Exception as e:
+                raise RuntimeError(f"Error iniciando servidor MCP: {str(e)}")
+    
+    def _stop_server(self):
+        """Detiene el servidor MCP"""
+        if self.process:
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=5)
+            except:
+                try:
+                    self.process.kill()
+                except:
+                    pass
+            self.process = None
     
     def call_tool(self, tool_name: str, arguments: Dict[str, Any] = None) -> Any:
         """
-        Llama a una herramienta MCP
+        Llama a una herramienta MCP usando conexión persistente
         
         Args:
             tool_name: Nombre de la herramienta (tg_me, tg_dialogs, tg_dialog, etc.)
@@ -39,56 +76,69 @@ class MCPClient:
         if arguments is None:
             arguments = {}
         
-        # Construir el comando MCP
-        mcp_request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": tool_name,
-                "arguments": arguments
-            }
-        }
-        
-        try:
-            # Ejecutar el servidor MCP con el request
-            process = subprocess.Popen(
-                [self.npx_path, "-y", "@chaindead/telegram-mcp"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            # Enviar el request y obtener respuesta
-            stdout, stderr = process.communicate(
-                input=json.dumps(mcp_request) + "\n",
-                timeout=30
-            )
-            
-            if stderr:
-                print(f"[DEBUG] MCP stderr: {stderr}")
-            
-            # Parsear la respuesta
-            for line in stdout.strip().split('\n'):
-                if not line.strip():
-                    continue
+        with self.process_lock:
+            max_retries = 3
+            for attempt in range(max_retries):
                 try:
-                    response = json.loads(line)
-                    if 'result' in response:
-                        return response['result']
-                    elif 'error' in response:
-                        raise RuntimeError(f"MCP Error: {response['error']}")
-                except json.JSONDecodeError:
-                    continue
+                    # Iniciar servidor si es necesario
+                    self._start_server()
+                    
+                    # Construir el comando MCP
+                    mcp_request = {
+                        "jsonrpc": "2.0",
+                        "id": self.request_id,
+                        "method": "tools/call",
+                        "params": {
+                            "name": tool_name,
+                            "arguments": arguments
+                        }
+                    }
+                    
+                    self.request_id += 1
+                    
+                    # Enviar el request
+                    request_json = json.dumps(mcp_request) + "\n"
+                    self.process.stdin.write(request_json)
+                    self.process.stdin.flush()
+                    
+                    # Leer respuesta con timeout
+                    response = None
+                    start_time = time.time()
+                    while time.time() - start_time < 30:  # 30 segundos timeout
+                        if self.process.poll() is not None:
+                            # Proceso terminó, reiniciar
+                            break
+                        
+                        line = self.process.stdout.readline()
+                        if line.strip():
+                            try:
+                                response = json.loads(line)
+                                break
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    if response:
+                        if 'result' in response:
+                            return response['result']
+                        elif 'error' in response:
+                            raise RuntimeError(f"MCP Error: {response['error']}")
+                    
+                    # Si llegamos aquí, intentar reiniciar el servidor
+                    self._stop_server()
+                    if attempt < max_retries - 1:
+                        time.sleep(1)  # Esperar antes de reintentar
+                    
+                except Exception as e:
+                    self._stop_server()
+                    if attempt == max_retries - 1:
+                        raise RuntimeError(f"Error llamando a herramienta MCP después de {max_retries} intentos: {str(e)}")
+                    time.sleep(1)
             
             return None
-            
-        except subprocess.TimeoutExpired:
-            process.kill()
-            raise RuntimeError(f"Timeout llamando a herramienta MCP: {tool_name}")
-        except Exception as e:
-            raise RuntimeError(f"Error llamando a herramienta MCP: {str(e)}")
+    
+    def __del__(self):
+        """Destructor para asegurar que el servidor se detenga"""
+        self._stop_server()
     
     def get_me(self) -> Dict:
         """Obtiene información de la cuenta actual"""
