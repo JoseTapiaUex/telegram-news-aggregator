@@ -1,21 +1,17 @@
-"""
-Telegram News Aggregator - Requirements
-
-Core dependencies (required):
-"""
+# Telegram News Aggregator - Requirements
+#
+# Core dependencies (required):
 Flask==3.0.0
 flask-cors==4.0.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 python-dotenv==1.0.0
 
-"""
-Optional/advanced dependencies (recommended for full functionality):
-- lxml: Faster HTML parsing
-- extruct: Better content extraction
-- google-genai: AI image generation
-- validators: URL validation
-"""
+# Optional/advanced dependencies (recommended for full functionality):
+# - lxml: Faster HTML parsing
+# - extruct: Better content extraction
+# - google-genai: AI image generation
+# - validators: URL validation
 lxml==6.0.2
 html5lib==1.1
 extruct==0.18.0
