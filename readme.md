@@ -226,3 +226,31 @@ MIT License - Siéntete libre de usar y modificar este proyecto.
 ## 🤝 Contribuciones
 
 Las contribuciones son bienvenidas. Por favor, abre un issue primero para discutir cambios mayores.
+
+## 🔐 Secrets & Backups
+
+No almacenes credenciales ni datos sensibles en este repositorio público. Recomendaciones:
+
+- Incluye sólo un `.env.example` con las claves/variables necesarias (sin valores reales). Usa ese archivo como plantilla para crear tu `.env` local.
+- Añade tus secretos (API keys, tokens, credenciales de Telegram) en **GitHub Secrets** si necesitas integrarlos en GitHub Actions. Nunca pongas valores secretos en el código ni en `README.md`.
+- La carpeta `data/`, la base de datos (`data/posts.db`) y archivos de logs están ignorados por `.gitignore` y no se deben commitear. Si necesitas una copia de seguridad de la base de datos, usa un repositorio privado o almacenamiento cifrado (S3, Azure Blob, Google Cloud Storage) y evita subir datos sin cifrar.
+- Si ya comitaste datos sensibles anteriormente, considera limpiar el historial con herramientas como `git filter-repo` o BFG Repo-Cleaner. Esto reescribe el historial y requiere forzar el push (`git push --force`) y coordinar con colaboradores.
+
+Pasos rápidos para mantener tu repositorio seguro:
+
+1. Asegúrate de que `.gitignore` contiene `data/`, `.env`, `.venv/`, `*.log`, `*.db`.
+2. Si tienes archivos sensibles ya en el repo, des-rastéalos (no los borra del disco):
+
+```powershell
+git rm --cached data/posts.db
+git rm --cached data/last_check.txt
+git rm --cached .env
+git commit -m "Remove sensitive files from repo"
+git push origin main
+```
+
+3. (Opcional) Limpiar historial con BFG o `git filter-repo` y forzar push — sólo si sabes lo que haces.
+
+4. Usa GitHub Secrets para variables necesarias en Actions y crea un `.env` local desde `.env.example`.
+
+Si quieres, puedo ayudarte a (a) crear un script de backup cifrado para `data/posts.db`, (b) guiarte para limpiar historial si hay secretos en commits previos, o (c) crear una GitHub Action que haga backups en un bucket privado.
