@@ -239,7 +239,7 @@ No almacenes credenciales ni datos sensibles en este repositorio público. Recom
 Pasos rápidos para mantener tu repositorio seguro:
 
 1. Asegúrate de que `.gitignore` contiene `data/`, `.env`, `.venv/`, `*.log`, `*.db`.
-2. Si tienes archivos sensibles ya en el repo, des-rastéalos (no los borra del disco):
+2. Si tienes archivos sensibles ya en el repo, desrrastréalos (no los borra del disco):
 
 ```powershell
 git rm --cached data/posts.db
@@ -252,5 +252,3 @@ git push origin main
 3. (Opcional) Limpiar historial con BFG o `git filter-repo` y forzar push — sólo si sabes lo que haces.
 
 4. Usa GitHub Secrets para variables necesarias en Actions y crea un `.env` local desde `.env.example`.
-
-Si quieres, puedo ayudarte a (a) crear un script de backup cifrado para `data/posts.db`, (b) guiarte para limpiar historial si hay secretos en commits previos, o (c) crear una GitHub Action que haga backups en un bucket privado.
