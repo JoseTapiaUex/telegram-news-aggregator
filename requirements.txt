@@ -1,17 +1,25 @@
 """
-This repository provides two requirement files to avoid installing heavy/optional
-binary packages by default on Windows.
+Telegram News Aggregator - Requirements
 
-- requirements-core.txt: minimal packages required to run the app
-- requirements-optional.txt: optional/advanced packages (lxml, gemini SDK, etc.)
-
-Install the core dependencies first:
-
-	.\.venv\Scripts\python.exe -m pip install -r requirements-core.txt
-
-If you need advanced features (image generation with Gemini SDK, extruct, or
-faster HTML parsing with lxml), then install the optional set:
-
-	.\.venv\Scripts\python.exe -m pip install -r requirements-optional.txt
+Core dependencies (required):
+"""
+Flask==3.0.0
+flask-cors==4.0.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+python-dotenv==1.0.0
 
 """
+Optional/advanced dependencies (recommended for full functionality):
+- lxml: Faster HTML parsing
+- extruct: Better content extraction
+- google-genai: AI image generation
+- validators: URL validation
+"""
+lxml==6.0.2
+html5lib==1.1
+extruct==0.18.0
+python-dateutil==2.9.0
+google-genai==1.41.0
+validators==0.35.0
+urllib3==2.5.0
