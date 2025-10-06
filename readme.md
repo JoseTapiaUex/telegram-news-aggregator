@@ -52,10 +52,21 @@ pip install -r requirements.txt
 - `scripts/setup_windows.ps1`: Script automatizado para instalación robusta en Windows
 - `scripts/test_generate_image.py`: Script de prueba para la funcionalidad de generación de imágenes
 
-### 4. Configurar variables de entorno
+### 4. Ejecutar el sistema
+
+#### Opción 1: Script automatizado (recomendado para Windows)
+```powershell
+.\run_system.ps1
+```
+
+#### Opción 2: Ejecución manual
 ```bash
-cp .env.example .env
-# Editar .env con tus configuraciones
+# Activar entorno virtual
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
+
+# Ejecutar
+python run.py
 ```
 
 ## ⚙️ Configuración
