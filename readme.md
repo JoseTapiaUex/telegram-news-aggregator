@@ -48,6 +48,10 @@ pip install -r requirements.txt
 
 **Nota**: El archivo requirements.txt incluye tanto las dependencias core como las opcionales recomendadas para funcionalidad completa (generación de imágenes, parsing rápido, etc.). Si encuentras errores de compilación en Windows (especialmente con `lxml`), consulta la sección de Troubleshooting más abajo.
 
+#### Scripts de ayuda disponibles:
+- `scripts/setup_windows.ps1`: Script automatizado para instalación robusta en Windows
+- `scripts/test_generate_image.py`: Script de prueba para la funcionalidad de generación de imágenes
+
 ### 4. Configurar variables de entorno
 ```bash
 cp .env.example .env
@@ -199,7 +203,7 @@ Obtener un post específico por ID
   ```powershell
   # Abre PowerShell como Administrador
   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-  .\legacy\scripts\setup_windows.ps1
+  .\scripts\setup_windows.ps1
   ```
 
   Si prefieres no ejecutar scripts, sigue las instrucciones descritas en la sección anterior sobre instalar Visual C++ Build Tools o descargar la rueda precompilada para `lxml`.
